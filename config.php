@@ -37,7 +37,7 @@ if ($_SERVER['HTTP_HOST'] == 'localhost') {
 } else {
 
   // ONLINE
-  define('BASE_URL', 'https://sksu-orms.net/inspire');
+  define('BASE_URL', 'https://fis.sksu-orms.net');
 
 }
 
