@@ -1,162 +1,263 @@
 <?php
-session_start();
-include 'include/dbconnect.php';
-include 'config.php';
 
-if (!isset($_POST['credential'])) {
-    die('Invalid request');
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+
+ob_start();
+
+require 'include/dbconnect.php';
+
+header('Content-Type: application/json');
+
+ini_set('session.cookie_httponly', 1);
+ini_set('session.use_strict_mode', 1);
+
+session_start();
+
+
+/* ============================
+   READ INPUT
+============================ */
+
+$data = json_decode(
+  file_get_contents("php://input"),
+  true
+);
+
+if (!isset($data['credential'])) {
+
+  echo json_encode([
+    "status"=>"error",
+    "message"=>"Missing credential"
+  ]);
+
+  exit;
+
 }
 
-$token = $_POST['credential'];
 
-/* VERIFY TOKEN WITH GOOGLE */
+/* ============================
+   VERIFY GOOGLE
+============================ */
+
+$credential =
+$data['credential'];
+
+$verify_url =
+"https://oauth2.googleapis.com/tokeninfo?id_token=" .
+$credential;
+
 $ch = curl_init();
 
-curl_setopt($ch, CURLOPT_URL,
-    "https://oauth2.googleapis.com/tokeninfo?id_token=" . $token);
-
+curl_setopt($ch, CURLOPT_URL, $verify_url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
 $response = curl_exec($ch);
 
-if (curl_errno($ch)) {
-    die('Token verification failed');
-}
-
 curl_close($ch);
 
-/* Decode Google response */
-$payload = json_decode($response, true);
+if ($response === FALSE) {
 
-if (!isset($payload['email'])) {
-    die('Invalid Google token');
+  echo json_encode([
+    "status"=>"error",
+    "message"=>"Token verification failed"
+  ]);
+
+  exit;
+
 }
 
-/* Restrict institutional domain */
-if (!str_ends_with($payload['email'], '@sksu.edu.ph')) {
-    die('Unauthorized domain');
+$payload =
+json_decode($response, true);
+
+if (!$payload) {
+
+  echo json_encode([
+    "status"=>"error",
+    "message"=>"Invalid Google token"
+  ]);
+
+  exit;
+
 }
 
-/* Validate audience */
-if ($payload['aud'] != '1067806573057-rmecopun8e761up24tb2ukui86h4600b.apps.googleusercontent.com') {
-    die('Invalid client ID');
+
+/* ============================
+   VALIDATE CLIENT ID
+============================ */
+
+$client_id =
+"1067806573057-rmecopun8e761up24tb2ukui86h4600b.apps.googleusercontent.com";
+
+if ($payload['aud'] !== $client_id) {
+
+  echo json_encode([
+    "status"=>"error",
+    "message"=>"Invalid client ID"
+  ]);
+
+  exit;
+
 }
 
-$email = $payload['email'];
 
-header('location:503.php');
+/* ============================
+   EXTRACT GOOGLE DATA
+============================ */
 
-/* DATABASE QUERY */
+$email     = $payload['email'];
+$name      = $payload['name'];
+$picture   = $payload['picture'];
+$google_id = $payload['sub'];
+
+
+/* ============================
+   GET USER FROM DATABASE
+============================ */
+
 $stmt = $conn->prepare("
-	SELECT 
-	    e.*,
-	    c.campname,
-	    u.access_module,
-	    u.usertype
-	FROM employees_2 e
-	INNER JOIN campuses c 
-	    ON e.campid = c.campid
 
-	LEFT JOIN users u
-	    ON e.empid = u.empid
-	    AND u.access_module = 'inspire'
+SELECT 
+    e.*,
+    c.campname,
+    u.access_module,
+    u.usertype
 
-	WHERE e.emp_email = ?
+FROM employees_2 e
+
+INNER JOIN campuses c 
+    ON e.campid = c.campid
+
+LEFT JOIN users u
+    ON e.empid = u.empid
+    AND u.access_module = 'inspire'
+
+WHERE e.emp_email = ?
+
 ");
 
-$stmt->bind_param("s", $email);
-$stmt->execute();
+$stmt->bind_param(
+  "s",
+  $email
+);
 
-$result = $stmt->get_result();
+if (!$stmt->execute()) {
 
-if ($result->num_rows == 1) {
+  echo json_encode([
+    "status"=>"error",
+    "message"=>"Database Error"
+  ]);
 
-    session_regenerate_id(true);
+  exit;
 
-    $user = $result->fetch_assoc();
+}
 
-    /*
-    ===============================
-    STORE COMPLETE SESSION
-    ===============================
-    */
+$result =
+$stmt->get_result();
 
-    $_SESSION['auth'] = [
+if ($result->num_rows !== 1) {
 
-        'logged_in' => true,
+  echo json_encode([
+    "status"=>"error",
+    "message"=>"Unauthorized email"
+  ]);
 
-        'login_time' => time(),
+  exit;
 
-	    'access_module' =>
-	        $user['access_module'] ?? null,
+}
 
-	    'usertype' =>
-	        $user['usertype'] ?? 'Faculty',
+$user =
+$result->fetch_assoc();
 
-        'google' => [
 
-            'sub' => $payload['sub'] ?? null,
-            'email' => $payload['email'] ?? null,
-            'name' => $payload['name'] ?? null,
-            'given_name' => $payload['given_name'] ?? null,
-            'family_name' => $payload['family_name'] ?? null,
-            'picture' => $payload['picture'] ?? null,
-            'email_verified' => $payload['email_verified'] ?? null,
-            'issuer' => $payload['iss'] ?? null,
-            'audience' => $payload['aud'] ?? null,
-            'expires' => $payload['exp'] ?? null
+/* ============================
+   STORE SESSION (KEEP FORMAT)
+============================ */
 
-        ],
+$_SESSION['auth'] = [
 
-        'db' => $user
+    'logged_in' => true,
 
-    ];
+    'login_time' => time(),
 
-    /*
-    OPTIONAL SHORTCUT VARIABLES
-    */
+    'access_module' =>
+        $user['access_module'] ?? null,
 
-    $_SESSION['user_id'] =
-        $user['empid'];
+    'usertype' =>
+        $user['usertype'] ?? 'Faculty',
 
-    $_SESSION['user_name'] =
-        $user['emp_fname'] .
-        ' ' .
-        $user['emp_lname'];
+    'google' => [
 
-    $_SESSION['designation'] =
-        $user['emp_designation'];
+        'sub' => $payload['sub'] ?? null,
+        'email' => $payload['email'] ?? null,
+        'name' => $payload['name'] ?? null,
+        'given_name' => $payload['given_name'] ?? null,
+        'family_name' => $payload['family_name'] ?? null,
+        'picture' => $payload['picture'] ?? null,
+        'email_verified' => $payload['email_verified'] ?? null,
+        'issuer' => $payload['iss'] ?? null,
+        'audience' => $payload['aud'] ?? null,
+        'expires' => $payload['exp'] ?? null
 
-    $_SESSION['campus'] =
-        $user['campname'];
-    
-	/* ===============================
-	   ROLE-BASED REDIRECT
-	=============================== */
+    ],
 
-	if (!empty($user['access_module'])) {
+    'db' => $user
 
-	    if ($user['access_module'] === 'inspire') {
+];
 
-	        /* Admin user */
 
-	        header('location:' . BASE_URL . 'admin/employees.php');
-	        exit;
+/* OPTIONAL SHORTCUTS */
 
-	    }
+$_SESSION['user_id'] =
+$user['empid'];
 
-	}
+$_SESSION['user_name'] =
+$user['emp_fname'] .
+' ' .
+$user['emp_lname'];
 
-	/* Regular Faculty */
+$_SESSION['designation'] =
+$user['emp_designation'];
 
-	header('location:' . BASE_URL . 'employee-profile.php');
-	exit;
+$_SESSION['campus'] =
+$user['campname'];
+
+
+/* SECURITY */
+
+session_regenerate_id(true);
+
+
+/* ============================
+   DECIDE REDIRECT
+============================ */
+
+if ($user['access_module'] === 'inspire') {
+
+    $redirect =
+    "admin/employees.php";
 
 }
 else {
 
-    header('location:' . BASE_URL . 'index.php?status=nf');
-    exit;
+    $redirect =
+    "employee-profile.php";
 
 }
-?>
+
+
+/* ============================
+   RETURN RESPONSE
+============================ */
+
+ob_clean();
+
+echo json_encode([
+
+  "status"=>"success",
+
+  "redirect"=>$redirect
+
+]);
+
+exit;
