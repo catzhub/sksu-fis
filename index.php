@@ -119,7 +119,7 @@
 
                       <!-- <p>-or-</p><br> -->
                       <div id="g_id_onload"
-                           data-client_id="463114917800-bohj3g4t50t5kaurnlbodr5bdnv9n68j.apps.googleusercontent.com"
+                           data-client_id="1067806573057-rmecopun8e761up24tb2ukui86h4600b.apps.googleusercontent.com"
                            data-context="signin"
                            data-ux_mode="popup"
                            data-login_uri="<?php echo BASE_URL; ?>/verify.php"
