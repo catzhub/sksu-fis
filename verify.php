@@ -137,7 +137,7 @@ if ($result->num_rows == 1) {
 
 	        /* Admin user */
 
-	        header('location:admin/employees.php');
+	        header('location:' . BASE_URL . 'admin/employees.php');
 	        exit;
 
 	    }
@@ -146,13 +146,13 @@ if ($result->num_rows == 1) {
 
 	/* Regular Faculty */
 
-	header('location:employee-profile.php');
+	header('location:' . BASE_URL . 'employee-profile.php');
 	exit;
 
 }
 else {
 
-    header('location:index.php?status=nf');
+    header('location:' . BASE_URL . 'index.php?status=nf');
     exit;
 
 }
