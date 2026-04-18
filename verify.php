@@ -1,6 +1,7 @@
 <?php
 session_start();
 include 'include/dbconnect.php';
+include 'config.php';
 
 if (!isset($_POST['credential'])) {
     die('Invalid request');
