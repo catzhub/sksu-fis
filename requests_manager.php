@@ -566,7 +566,412 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // print_r($stmt);
         header('location:employee-profile.php');
     }elseif ($_POST['request']=='uploadfile') {
-        
+
+        if ($_POST['csrf'] !== $_SESSION['csrf']) {
+
+            echo json_encode([
+                'status'=>'error',
+                'message'=>'Invalid CSRF'
+            ]);
+
+            exit;
+
+        }
+        $title = $_POST['file_title'];
+
+        $empid =
+        $_SESSION['auth']['db']['empid'];
+
+        $file_description =
+        $_POST['file_description'];
+
+        $category =
+        $_POST['file_category'];
+
+        $source =
+        $_POST['file_source'];
+
+
+
+        /* ===============================
+           OPTION 1 — LINK
+        =============================== */
+
+        if ($source == "link") {
+
+            $original = $_POST['file_link']; 
+            $stmt = $conn->prepare(" 
+            INSERT INTO employee_files
+            (
+                empid,
+                file_name,
+                file_original_name,
+                file_title,
+                file_type,
+                file_category,
+                file_source,
+                file_link,
+                file_size,
+                uploaded_by,
+                file_description
+            )
+
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
+
+            ");
+
+            $dummy_name = "LINK";
+            $type = "link";
+            $size = 0;
+
+            $stmt->bind_param(
+
+            "isssssssiis",
+
+            $empid,
+            $dummy_name,
+            $original,
+            $title,
+            $type,
+            $category,
+            $source,
+            $file_link,
+            $size,
+            $empid,
+            $file_description
+
+            );
+
+            $stmt->execute();
+
+            header("location:admin/forms.php");
+
+            exit;
+
+        }
+
+
+
+        /* ===============================
+           OPTION 2 — FILE UPLOAD
+        =============================== */
+
+        if(isset($_FILES['upload_file'])){
+            $mode = $_POST['mode'] ?? 'add';
+
+            $file = $_FILES['upload_file'];
+
+            $original = $file['name'];
+
+            $tmp = $file['tmp_name'];
+
+            $size = $file['size'];
+
+            $ext =
+            strtolower(
+            pathinfo(
+            $original,
+            PATHINFO_EXTENSION
+            ));
+
+            $allowed = [
+
+              'pdf',
+              'doc',
+              'docx',
+              'xls',
+              'xlsx',
+              'jpg',
+              'jpeg',
+              'png'
+
+            ];
+
+            if(!in_array($ext,$allowed)){
+
+                die("Invalid file type");
+
+            }
+
+            if($size > 5*1024*1024){
+
+                die("File too large");
+
+            }
+
+            $type =
+            mime_content_type($tmp);
+
+            $newname =
+            uniqid().".".$ext;
+
+            $folder =
+            "files/forms/";
+
+            if(!is_dir($folder)){
+
+                mkdir(
+                  $folder,
+                  0777,
+                  true
+                );
+
+            }
+
+
+            // if($mode == "edit"){
+
+            //     $file_id =
+            //     intval($_POST['file_id']);
+
+            //     $title =
+            //     $_POST['file_title'];
+
+            //     $category =
+            //     $_POST['file_category'];
+
+            //     $source =
+            //     $_POST['file_source'];
+
+            //     $description =
+            //     $_POST['file_description'];
+
+            //     $empid =
+            //     $_SESSION['auth']['db']['empid'];
+
+
+
+                /* ===============================
+                   EDIT LINK
+                =============================== */
+
+                // if($source=="link"){
+
+                //     $link =
+                //     $_POST['file_link'];
+
+                //     $stmt =
+                //     $conn->prepare("
+
+                //     UPDATE employee_files
+                //     SET
+
+                //     file_title=?,
+                //     file_category=?,
+                //     file_source=?,
+                //     file_link=?,
+                //     file_description=?
+
+                //     WHERE file_id=?
+                //     AND empid=?
+
+                //     ");
+
+                //     $stmt->bind_param(
+
+                //     "sssssii",
+
+                //     $title,
+                //     $category,
+                //     $source,
+                //     $link,
+                //     $description,
+                //     $file_id,
+                //     $empid
+
+                //     );
+
+                //     $stmt->execute();
+
+                //     header("location:forms.php");
+
+                //     exit;
+
+                // }
+
+
+
+                /* ===============================
+                   EDIT FILE UPLOAD
+                =============================== */
+
+                // if(isset($_FILES['upload_file'])
+                //    &&
+                //    $_FILES['upload_file']['name']!=""){
+
+                //     /* Delete old file */
+
+                //     $stmt =
+                //     $conn->prepare("
+
+                //     SELECT file_name
+                //     FROM employee_files
+                //     WHERE file_id=?
+                //     AND empid=?
+
+                //     ");
+
+                //     $stmt->bind_param(
+                //     "ii",
+                //     $file_id,
+                //     $empid
+                //     );
+
+                //     $stmt->execute();
+
+                //     $result =
+                //     $stmt->get_result();
+
+                //     if($row=$result->fetch_assoc()){
+
+                //         $old =
+                //         "files/forms/" .
+                //         $row['file_name'];
+
+                //         if(file_exists($old)){
+
+                //             unlink($old);
+
+                //         }
+
+                //     }
+
+
+
+                //     /* Upload new */
+
+                //     $file =
+                //     $_FILES['upload_file'];
+
+                //     $original =
+                //     $file['name'];
+
+                //     $tmp =
+                //     $file['tmp_name'];
+
+                //     $size =
+                //     $file['size'];
+
+                //     $ext =
+                //     strtolower(
+                //     pathinfo(
+                //     $original,
+                //     PATHINFO_EXTENSION
+                //     ));
+
+                //     $newname =
+                //     uniqid().".".$ext;
+
+                //     move_uploaded_file(
+                //         $tmp,
+                //         "files/forms/".$newname
+                //     );
+
+
+
+                    // $stmt =
+                    // $conn->prepare("
+
+                    // UPDATE employee_files
+                    // SET
+
+                    // file_name=?,
+                    // file_original_name=?,
+                    // file_title=?,
+                    // file_category=?,
+                    // file_source='upload',
+                    // file_link=NULL,
+                    // file_size=?,
+                    // file_description=?
+
+                    // WHERE file_id=?
+                    // AND empid=?
+
+                    // ");
+
+                    // $stmt->bind_param(
+
+                    // "ssssissi",
+
+                    // $newname,
+                    // $original,
+                    // $title,
+                    // $category,
+                    // $size,
+                    // $description,
+                    // $file_id,
+                    // $empid
+
+                    // );
+
+                    // $stmt->execute();
+
+                    // header("location:forms.php");
+
+                    // exit;
+
+            //     }
+
+            // }
+
+            move_uploaded_file(
+                $tmp,
+                $folder.$newname
+            );
+
+
+
+
+
+
+            $stmt =
+            $conn->prepare("
+
+            INSERT INTO employee_files
+            (
+                empid,
+                file_name,
+                file_original_name,
+                file_title,
+                file_type,
+                file_category,
+                file_source,
+                file_link,
+                file_size,
+                uploaded_by,
+                file_description
+            )
+
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
+
+            ");
+
+            $file_link = NULL;
+
+            $stmt->bind_param(
+
+            "isssssssiis",
+
+            $empid,
+            $newname,
+            $original,
+            $title,
+            $type,
+            $category,
+            $source,
+            $file_link,
+            $size,
+            $empid,
+            $file_description
+
+            );
+
+            $stmt->execute();
+
+            header("location:admin/forms.php");
+
+        }
+    }elseif ($_POST['request']=='updatefile') {
 
         if ($_POST['csrf'] !== $_SESSION['csrf']) {
 
@@ -579,129 +984,149 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         }
 
+        $file_id =
+        intval($_POST['file_id']);
+
         $empid =
         $_SESSION['auth']['db']['empid'];
-        $file_description = $_POST['file_description'];
-        if(isset($_FILES['upload_file'])){
 
-            $file =
-            $_FILES['upload_file'];
+        $title =
+        $_POST['file_title'];
 
-            $original =
-            $file['name'];
+        $category =
+        $_POST['file_category'];
 
-            $tmp =
-            $file['tmp_name'];
+        $source =
+        $_POST['file_source'];
 
-            $size =
-            $file['size'];
+        $description =
+        $_POST['file_description'];
 
-            $ext =
-            strtolower(
-            pathinfo(
-            $original,
-            PATHINFO_EXTENSION
-            ));
 
-            /* ===========================
-               STEP 7 — SECURITY CHECKS
-               =========================== */
+        /* ============================
+           UPDATE LINK
+        ============================ */
 
-            $allowed = [
-              'pdf',
-              'doc',
-              'docx',
-              'xls',
-              'xlsx',
-              'jpg',
-              'jpeg',
-              'png'
-            ];
+        if($source=="link"){
 
-            /* Check file type */
-
-            if(!in_array($ext,$allowed)){
-
-                die("Invalid file type");
-
-            }
-
-            /* Check file size */
-
-            if($size > 5*1024*1024){
-
-                die("File too large (Max 5MB)");
-
-            }
-
-            /* ===========================
-               CONTINUE UPLOAD
-               =========================== */
-
-            $type =
-            mime_content_type($tmp);
-
-            $newname =
-            uniqid().".".$ext;
-
-            $folder =
-            "files/forms/";
-
-            /* Create folder if not exists */
-
-            if(!is_dir($folder)){
-
-                mkdir(
-                  $folder,
-                  0777,
-                  true
-                );
-
-            }
-
-            /* Move uploaded file */
-
-            move_uploaded_file(
-                $tmp,
-                $folder.$newname
-            );
-
-            $category =
-            $_POST['file_category'];
-
-            /* Save to database */
+            $link =
+            $_POST['file_link'];
 
             $stmt =
             $conn->prepare("
-            INSERT INTO employee_files
-            (
-                empid,
-                file_name,
-                file_original_name,
-                file_type,
-                file_category,
-                file_size,
-                uploaded_by,
-                file_description
-            )
-            VALUES (?,?,?,?,?,?,?,?)
+
+            UPDATE employee_files
+            SET
+
+            file_title=?,
+            file_category=?,
+            file_source=?,
+            file_link=?,
+            file_description=?
+
+            WHERE file_id=?
+            AND empid=?
+
             ");
 
             $stmt->bind_param(
-                "issssiis",
-                $empid,
-                $newname,
-                $original,
-                $type,
-                $category,
-                $size,
-                $empid,
-                $file_description
+
+            "sssssii",
+
+            $title,
+            $category,
+            $source,
+            $link,
+            $description,
+            $file_id,
+            $empid
+
             );
 
             $stmt->execute();
 
             header("location:forms.php");
+
+            exit;
+
+        }
+
+
+    /* ============================
+       UPDATE FILE
+    ============================ */
+
+    if(isset($_FILES['upload_file'])
+       &&
+       $_FILES['upload_file']['name']!=""){
+
+        $file =
+        $_FILES['upload_file'];
+
+        $original =
+        $file['name'];
+
+        $tmp =
+        $file['tmp_name'];
+
+        $size =
+        $file['size'];
+
+        $ext =
+        strtolower(
+        pathinfo(
+        $original,
+        PATHINFO_EXTENSION
+        ));
+
+        $newname =
+        uniqid().".".$ext;
+
+        move_uploaded_file(
+            $tmp,
+            "files/forms/".$newname
+        );
+
+        $stmt =
+        $conn->prepare("
+
+        UPDATE employee_files
+        SET
+
+        file_name=?,
+        file_original_name=?,
+        file_title=?,
+        file_category=?,
+        file_source='upload',
+        file_link=NULL,
+        file_size=?,
+        file_description=?
+
+        WHERE file_id=?
+        AND empid=?
+
+        ");
+
+        $stmt->bind_param(
+
+        "ssssissi",
+
+        $newname,
+        $original,
+        $title,
+        $category,
+        $size,
+        $description,
+        $file_id,
+        $empid
+
+        );
+
+        $stmt->execute();
+
+        header("location:forms.php");
+
+        exit;
 
         }
 

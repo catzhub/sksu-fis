@@ -79,7 +79,7 @@
             <?php else: ?>
 
             <p class="text-muted">
-              No education records found.
+              No forms found.
             </p>
 
             <?php endif ?>

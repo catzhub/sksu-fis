@@ -61,7 +61,7 @@
                   $rownum++;
                   ?>
                   <tr>
-                    <td><?=htmlspecialchars($row['file_original_name'])?></td>
+                    <td> <?=htmlspecialchars( $row['file_title'] )?> </td>
                     <td><?=htmlspecialchars($row['file_category'])?></td>
                     <td><?=htmlspecialchars($row['file_type'])?></td>
                     <td><?=number_format($row['file_size']/1024,2)?> KB</td>
@@ -69,10 +69,32 @@
                     <td width="1%" style="white-space:nowrap" >
                         <button
                           class="btn btn-outline-success rounded-pill btn-sm"
-                          onclick="download_file(<?=$row['file_id']?>)"
+                          onclick="download_file(
+                            <?=$row['file_id']?>,
+                            '<?=htmlspecialchars($row['file_source'])?>',
+                            '<?=htmlspecialchars($row['file_link'])?>'
+                            )"
                           title="Download">
 
                           <i class="bi bi-download"></i>
+
+                        </button>
+
+                        <button
+                          class="btn btn-outline-primary rounded-pill btn-sm"
+
+                          onclick="edit_file(
+                            <?=$row['file_id']?>,
+                            '<?=htmlspecialchars($row['file_title'],ENT_QUOTES)?>',
+                            '<?=htmlspecialchars($row['file_category'],ENT_QUOTES)?>',
+                            '<?=htmlspecialchars($row['file_source'],ENT_QUOTES)?>',
+                            '<?=htmlspecialchars($row['file_link'],ENT_QUOTES)?>',
+                            '<?=htmlspecialchars($row['file_description'],ENT_QUOTES)?>'
+                          )"
+
+                          title="Edit">
+
+                        <i class="bi bi-pencil"></i>
 
                         </button>
                         <button class="btn btn-outline-danger rounded-pill btn-sm" onclick="delete_file(this, <?=$row['file_id']?>)" title="Delete"><i class="bi bi-trash"></i></button>
@@ -84,7 +106,7 @@
             <?php else: ?>
 
             <p class="text-muted">
-              No education records found.
+              No files found.
             </p>
 
             <?php endif ?>
@@ -111,92 +133,127 @@
               <!-- <p>For custom Bootstrap form validation messages, you’ll need to add the <code>novalidate</code> boolean attribute to your <code>&lt;form&gt;</code>. This disables the browser default feedback tooltips, but still provides access to the form validation APIs in JavaScript. </p> -->
 
               <!-- Custom Styled Validation -->
-<form method="POST"
-      action="requests_manager.php"
-      enctype="multipart/form-data">
-      <input type="hidden" name="request" value="uploadfile">
-      
-
-          <input type="hidden"
-                 name="csrf"
-                 value="<?= $_SESSION['csrf'] ?? '' ?>">
-<div class="row mb-3">
+              <form method="POST" action="../requests_manager.php" enctype="multipart/form-data">
+                <input type="hidden" name="request" id="requestMode" value="uploadfile">
+                <input type="hidden" name="file_id" id="file_id">
+                <input type="hidden" name="csrf" value="<?= $_SESSION['csrf'] ?? '' ?>">
+                <input type="hidden" name="mode" id="mode" value="add">
+                <div class="row mb-3">
 
 
 
-  <label class="form-label">
-  Document Category
-  </label>
+                  <label class="form-label">
+                  Document Category
+                  </label>
 
-   <div class="col-md-8 col-lg-12">
-    <select name="file_category"
-            class="form-control"
-            required>
+                   <div class="col-md-8 col-lg-12">
+                    <select name="file_category"
+                            class="form-control"
+                            required>
 
-    <option value="">
-    Select Category
-    </option>
+                    <option value="">
+                    Select Category
+                    </option>
 
-    <option value="Form">
-    Form
-    </option>
+                    <option value="Form">
+                    Form
+                    </option>
 
-    <option value="Transcript">
-    Transcript
-    </option>
+                    <option value="Transcript">
+                    Transcript
+                    </option>
 
-    <option value="Certificate">
-    Certificate
-    </option>
+                    <option value="Certificate">
+                    Certificate
+                    </option>
 
-    <option value="ID">
-    ID
-    </option>
+                    <option value="ID">
+                    ID
+                    </option>
 
-    <option value="Others">
-    Others
-    </option>
+                    <option value="Others">
+                    Others
+                    </option>
 
-    </select>
-  </div>
+                    </select>
+                  </div>
 
-</div>
-<div class="row mb-3">
+                </div>
 
-  <label class="form-label">
-  File Description
-  </label>
-   <div class="col-md-8 col-lg-12">
+                <div class="row mb-3">
+                  <label class="form-label">Document Title</label>
+                  <div class="col-md-8 col-lg-12">
+                    <input type="text" name="file_title" class="form-control" required>
+                  </div>
+                </div>
 
-    <textarea name="file_description" rows="2" class="form-control"></textarea>
-  </div>
-</div>
-
-
-<div class="row mb-3">
-
-  <label class="form-label">
-  Upload File
-  </label>
-
-  <input type="file"
-         name="upload_file"
-         class="form-control"
-         required>
-
-</div>
+                <div class="row mb-3">
+                  <label class="form-label">Source Type</label>
+                  <div class="col-md-8 col-lg-12">
+                    <select name="file_source" id="file_source" class="form-control" required> 
+                      <option value="upload">Upload File</option>
+                      <option value="link">Provide Link</option>
+                    </select>
+                  </div>
+                </div>
 
 
-<div class="row mb-3">
+                <div class="row mb-3">
 
-            <button class="btn btn-primary"
-                    type="submit">
+                  <label class="form-label">
+                  Upload File
+                  </label>
 
-              Upload File
+                  <div class="col-md-8 col-lg-12">
 
-            </button>
+                    <div id="uploadField">
 
-</div>
+                      <input type="file"
+                             name="upload_file"
+                             class="form-control">
+
+                    </div>
+
+                    <div id="linkField"
+                         style="display:none;">
+
+                      <input type="url"
+                             name="file_link"
+                             class="form-control"
+                             placeholder="https://...">
+
+                    </div>
+                    
+                  </div>
+
+                </div>
+
+
+                <div class="row mb-3">
+
+                </div>
+
+                <div class="row mb-3">
+
+                  <label class="form-label">
+                  File Description
+                  </label>
+                   <div class="col-md-8 col-lg-12">
+
+                    <textarea name="file_description" rows="2" class="form-control"></textarea>
+                  </div>
+                </div>
+
+                <div class="col-md-8 col-lg-12">
+
+                  <button class="btn btn-primary"
+                          type="submit">
+
+                    Upload File
+
+                  </button>
+                  
+                </div>
               </form><!-- End Custom Styled Validation -->
 
             </div>
@@ -238,30 +295,91 @@
     document.getElementById('modalEducation')
     );
 
+    $("#file_source").change(function(){
 
-    function download_file(file_id){
+        if($(this).val()=="upload"){
+
+            $("#uploadField").show();
+            $("#linkField").hide();
+
+        }
+        else{
+
+            $("#uploadField").hide();
+            $("#linkField").show();
+
+        }
+
+    });
+
+
+    function download_file(
+        file_id,
+        source,
+        link
+    ){
+
+        /* ============================
+           IF LINK → OPEN NEW TAB
+        ============================ */
+
+        if(source === "link"){
+
+            if(link){
+
+                window.open(
+                    link,
+                    "_blank"
+                );
+
+            }
+            else{
+
+                alert(
+                "Invalid link"
+                );
+
+            }
+
+            return;
+
+        }
+
+
+        /* ============================
+           IF FILE → DOWNLOAD
+        ============================ */
 
         const frame =
-        document.getElementById('downloadFrame');
+        document.getElementById(
+        'downloadFrame'
+        );
 
         frame.src =
-        "download_file.php?id=" + file_id;
+        "../download_file.php?id="
+        + file_id;
 
     }
 
     function openUploadModal(){
-      // alert("1");
 
-      modal.show();
-      $("#modalEducation #modalmode").text("Add Education");
-      $("#modalEducation #submitdegree").val("addeducation");
+        modal.show();
 
-      $("#inputgraduation").val("");
-      $("#modalEducation #degreeName").val("");   
-      $("#modalEducation #degreeSchool").val("");
-      $('input[name="degree"][id="Bachelor"]').prop('checked', true);
-      $('input[name="status"][id="Graduated"]').prop('checked', true);
+        $("#modalmode")
+        .text("Upload File");
+
+        $("#requestMode")
+        .val("uploadfile");
+
+        $("#file_id").val("");
+
+        $("input[name='file_title']").val("");
+
+        $("textarea[name='file_description']").val("");
+
     }
+
+
     function delete_file(obj,id){
 
       var request = 'deletefile';
@@ -326,71 +444,47 @@
 
     }
 
-    function edit_education(
-        obj,
+    function edit_file(
         id,
-        degree,
-        program,
-        school,
-        status,
-        date
+        title,
+        category,
+        source,
+        link,
+        description
     ){
 
         modal.show();
 
-        $("#modalmode").text("Edit Education");
+        $("#modalmode")
+        .text("Edit File");
 
-        /* Set values */
+        /* change request */
 
-        $('input[name="degree"][id="'+degree+'"]')
-            .prop('checked', true);
+        $("#requestMode")
+        .val("updatefile");
 
-        $('input[name="status"][id="'+status+'"]')
-            .prop('checked', true);
+        $("#file_id")
+        .val(id);
 
-        $("#degreeName").val(program);
+        $("input[name='file_title']")
+        .val(title);
 
-        $("#degreeSchool").val(school);
+        $("select[name='file_category']")
+        .val(category);
 
-        if(status === "On-going"){
-            $("#graddate").hide();
-        }else{
-            $("#graddate").show();
-        }
+        $("#file_source")
+        .val(source)
+        .trigger("change");
 
-        /* Handle date */
+        $("input[name='file_link']")
+        .val(link);
 
-        if(date &&
-           date !== "0000-00-00 00:00:00"){
-
-            $("#inputgraduation")
-                .val(date.substring(0,10));
-
-        }
-
-        $("#submitdegree")
-            .val("editeducation");
-
-        $("#empedu")
-            .val(id);
+        $("textarea[name='file_description']")
+        .val(description);
 
     }
 
 
-    const grad = document.getElementById('Graduated');
-    const ongoing = document.getElementById('On-going');
-
-    if (grad) {
-      grad.addEventListener('click', function() {
-          $("#graddate").show();
-      });
-    }
-
-    if (ongoing) {
-      ongoing.addEventListener('click', function() {
-          $("#graddate").hide();
-      });
-    }
 
   </script>
   <script type="text/javascript">
